@@ -1,0 +1,16 @@
+{
+  "name": "Fincas C&P",
+  "short_name": "Fincas C&P",
+  "description": "Mapa de fincas de boda a 20-24 km de Ayala 71",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#faf4ec",
+  "theme_color": "#b8697d",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

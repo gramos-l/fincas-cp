@@ -2,8 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Fincas C&amp;P</title>
+<!-- PWA: instalar desde Safari con "Añadir a pantalla de inicio" — abre a pantalla completa, sin barra de Safari -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b8697d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fincas C&amp;P">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -25,13 +34,13 @@
     <div class="row" style="display:block"><label for="hscale" style="display:flex;justify-content:space-between">Altura de edificios <output id="hscaleOut">×1,0</output></label>
       <input type="range" id="hscale" min="0.5" max="2" step="0.1" value="1" aria-label="Altura de los edificios"></div>
     <div class="row">
-      <button id="theme" type="button">Modo oscuro</button>
       <button id="reset" type="button">Vista general</button>
     </div>
     <div class="row">
       <button id="loadXlsx" type="button">Cargar mi Excel</button>
       <input type="file" id="file" accept=".xlsx,.xlsm,.xls" hidden>
     </div>
+    <div id="precacheInfo" class="row" style="display:none;color:var(--muted);font-size:12.5px"></div>
   </div>
 </div>
 

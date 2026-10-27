@@ -4,7 +4,7 @@
    (saltándose la caché del navegador), para que veas tus cambios en cuanto los subes. */
 const SHELL = 'fincascp-shell-v1';
 const TILES = 'fincascp-tiles-v1';
-const MAX_TILES = 1500;
+const MAX_TILES = 30000;   // sin límite real de tamaño: se precarga el entorno de cada finca al abrir la app
 
 self.addEventListener('install', e => {
   self.skipWaiting();
