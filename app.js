@@ -23,7 +23,7 @@
     novios: 'Cuarto o zona de novios', ceremonia: 'Ceremonia en la finca', alojamiento: 'Alojamiento',
     parking: 'Parking', horario: 'Horario / nº eventos', notas: 'Observaciones',
     googleNota: 'Google (nota)', googleResenas: 'Google (nº reseñas)', bodasNet: 'bodas.net (nota y opiniones)',
-    tel: 'Teléfono', src: 'Fuente principal', lat: 'Latitud', lon: 'Longitud',
+    tel: 'Teléfono', src: 'Fuente principal', foto: 'Foto', lat: 'Latitud', lon: 'Longitud',
     tiempoCoche: 'Tiempo estimado en coche (min)', insta: 'Instagram (@usuario)', categoria: 'Categoría'
   };
 
@@ -407,7 +407,7 @@
       novios: String(g('novios') || ''), ceremonia: String(g('ceremonia') || ''), alojamiento: String(g('alojamiento') || ''),
       parking: String(g('parking') || ''), horario: String(g('horario') || ''), notas: String(g('notas') || ''),
       googleNota: toNum(g('googleNota')), googleResenas: toNum(g('googleResenas')), bodasNet: String(g('bodasNet') || ''),
-      tel: String(g('tel') || ''), src: String(g('src') || ''), tiempoCoche: toNum(g('tiempoCoche')), insta: String(g('insta') || '').replace(/^@/, ''),
+      tel: String(g('tel') || ''), src: String(g('src') || ''), foto: String(g('foto') || ''), tiempoCoche: toNum(g('tiempoCoche')), insta: String(g('insta') || '').replace(/^@/, ''),
       categoria: categoria || String(g('categoria') || 'dentro'),
       estado: 'pendiente',
       lat: toNum(g('lat')), lon: toNum(g('lon')), located: false, approx: false, failed: false
@@ -632,11 +632,15 @@
     ].join('');
 
     const estadoChip = '<span class="chip estado" style="background:' + estadoColor(p.estado) + ';color:#fff;border-color:transparent">' + esc(ESTADO_LABEL[p.estado] || ESTADO_LABEL.pendiente) + '</span>';
+    // foto sacada de la web de referencia (bodas.net, etc.): si el enlace deja de servirla, se oculta sola
+    const fotoUrl = safeUrl(p.foto);
+    const foto = fotoUrl ? '<img class="photo" src="' + esc(fotoUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '';
 
     return '<div class="grab"></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button>' +
       '<h2>' + esc(p.name) + '</h2><p class="zone">' + esc(p.zona) + '</p>' +
       (p.located ? '<p id="rutaInfo" class="ruta-box"></p>' : '') +
       '<div class="chips">' + cat + distChip + estadoChip + '</div>' +
+      foto +
       '<div class="actions"><a class="main" href="' + g + '" target="_blank" rel="noopener">Google Maps</a>' +
       (ruta ? '<a href="' + ruta + '" target="_blank" rel="noopener">Ruta desde Ayala 71</a>' : '') +
       '<a href="' + a + '" target="_blank" rel="noopener">Apple Maps</a>' +
