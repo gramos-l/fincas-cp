@@ -632,9 +632,8 @@
     ].join('');
 
     const estadoChip = '<span class="chip estado" style="background:' + estadoColor(p.estado) + ';color:#fff;border-color:transparent">' + esc(ESTADO_LABEL[p.estado] || ESTADO_LABEL.pendiente) + '</span>';
-    // foto sacada de la web de referencia (bodas.net, etc.): si el enlace deja de servirla, se oculta sola
-    const fotoUrl = safeUrl(p.foto);
-    const foto = fotoUrl ? '<img class="photo" src="' + esc(fotoUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '';
+    // foto guardada en el propio repositorio (fotos/): si el archivo faltara, se oculta sola
+    const foto = p.foto ? '<img class="photo" src="' + esc(p.foto) + '" alt="" loading="lazy" onerror="this.remove()">' : '';
 
     return '<div class="grab"></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button>' +
       '<h2>' + esc(p.name) + '</h2><p class="zone">' + esc(p.zona) + '</p>' +
