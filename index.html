@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fincas C&amp;P</title>
+<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.15.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="map"></div>
+
+<div id="hud" class="panel collapsed">
+  <div class="top">
+    <h1>Fincas C&amp;P</h1>
+    <span id="mode">2D</span>
+    <button id="toggleHud" type="button" aria-expanded="false" aria-controls="hudbody">Opciones</button>
+  </div>
+  <div id="hudbody">
+    <div id="stats">zoom 10.2 · inclinación 0°</div>
+    <div class="row"><label><input type="checkbox" id="auto" checked> Inclinar al acercar</label></div>
+    <div class="row" style="display:block"><label for="hscale" style="display:flex;justify-content:space-between">Altura de edificios <output id="hscaleOut">×1,0</output></label>
+      <input type="range" id="hscale" min="0.5" max="2" step="0.1" value="1" aria-label="Altura de los edificios"></div>
+    <div class="row">
+      <button id="theme" type="button">Modo oscuro</button>
+      <button id="reset" type="button">Vista general</button>
+    </div>
+    <div class="row">
+      <button id="loadXlsx" type="button">Cargar mi Excel</button>
+      <input type="file" id="file" accept=".xlsx,.xlsm,.xls" hidden>
+    </div>
+  </div>
+</div>
+
+<div id="legend" class="panel">
+  Altura del edificio
+  <div class="bar"></div>
+  <div class="ticks"><span>0</span><span>40</span><span>100</span><span>150+ m</span></div>
+</div>
+
+<div id="busy" class="panel">Cargando edificios…</div>
+<div id="geo" class="panel"><span id="geoText"></span><button id="geoRetry" type="button" hidden>Reintentar</button></div>
+
+<div id="bar" class="panel" role="group" aria-label="Filtros">
+  <button id="btnList" type="button">Lista</button>
+  <button data-f="all" class="on" type="button">Todas</button>
+  <button data-f="dentro" type="button">Dentro 20 km</button>
+  <button data-f="fuera" type="button">20-24 km</button>
+  <button data-f="otro" type="button">Otros</button>
+</div>
+
+<section id="card" class="sheet" role="dialog" aria-modal="false" aria-label="Ficha" aria-live="polite"></section>
+<section id="list" class="sheet" role="dialog" aria-modal="false" aria-label="Lista de fincas">
+  <div class="grab"></div>
+  <button class="close" type="button" data-close aria-label="Cerrar">✕</button>
+  <h2>Fincas</h2>
+  <input id="search" type="search" placeholder="Buscar por nombre, zona o tipo" aria-label="Buscar">
+  <div id="items"></div>
+</section>
+
+<div id="msg" class="panel"></div>
+
+<script type="module">
+  // MapLibre 6.x solo se distribuye como módulo ES; lo exponemos como objeto global mutable.
+  import * as maplibregl from 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.15.0/dist/maplibre-gl.mjs';
+  window.maplibregl = Object.assign({}, maplibregl);
+</script>
+<script defer src="editor.js"></script>
+<script defer src="app.js"></script>
+</body>
+</html>
