@@ -1,26 +1,28 @@
-  /* ====== COLORES: estética castiza (granate, crema, verde botella) — cámbialos aquí ====== */
+  /* ====== COLORES: estética de boda (rosa empolvado, salvia, dorado) — cámbialos aquí ====== */
   :root {
-    --pin-pendiente: #a3281f;   /* chincheta de las fincas por visitar */
-    --pin-visitada: #2f5233;    /* chincheta de las ya visitadas: verde botella */
-    --cat-dentro: #2f5233;      /* dentro de los 20 km */
-    --cat-fuera: #c17817;       /* justo fuera, 20-24 km */
-    --cat-otro: #6b4257;        /* otro tipo de espacio */
+    --pin-pendiente: #b8697d;   /* chincheta: sin decidir todavía (rosa empolvado) */
+    --pin-esperando: #d9a93f;   /* chincheta: esperando confirmación (ámbar) */
+    --pin-descartada: #b2473f;  /* chincheta: descartada (rojo) */
+    --pin-visitada: #7c8c6e;    /* chincheta: visitada (verde salvia) */
+    --cat-dentro: #7c8c6e;      /* dentro de los 20 km */
+    --cat-fuera: #c9a24a;       /* justo fuera, 20-24 km */
+    --cat-otro: #9b7e94;        /* otro tipo de espacio */
 
-    --bg: #f3e9d8;
-    --panel: rgba(250,243,230,.78);
-    --ink: #2b2016;
-    --muted: #7a6a55;
-    --line: rgba(43,32,22,.14);
-    --accent: #7a2530;
+    --bg: #faf4ec;
+    --panel: rgba(253,248,241,.78);
+    --ink: #3a2f30;
+    --muted: #8f7d7a;
+    --line: rgba(58,47,48,.13);
+    --accent: #b8697d;
     --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
   }
   :root[data-theme="dark"] {
-    --bg: #241a14;
-    --panel: rgba(43,30,22,.72);
-    --ink: #f0e4d0;
-    --muted: #b8a68c;
-    --line: rgba(240,228,208,.15);
-    --accent: #d4a24c;
+    --bg: #241c22;
+    --panel: rgba(40,30,36,.72);
+    --ink: #f5ebe6;
+    --muted: #b8a3a0;
+    --line: rgba(245,235,230,.15);
+    --accent: #cda45e;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink);
@@ -52,8 +54,8 @@
 
   #legend { top: calc(10px + env(safe-area-inset-top, 0px)); right: 56px; padding: 10px 12px; font-size: 12px; z-index: 2; }
   #legend .bar { height: 8px; width: 120px; border-radius: 4px; margin: 6px 0 3px;
-    background: linear-gradient(90deg, #e8d9bd, #d4b483, #b98a4a, #8c5a2e, #5c3a1e); }
-  :root[data-theme="dark"] #legend .bar { background: linear-gradient(90deg, #3a2e22, #5c4530, #8c6a3e, #c49a52, #e8c374); }
+    background: linear-gradient(90deg, #f5e6e0, #e8c2b8, #d9a28c, #c9a24a, #a8792e); }
+  :root[data-theme="dark"] #legend .bar { background: linear-gradient(90deg, #342830, #4a3540, #705248, #a37848, #cda45e); }
   #legend .ticks { display: flex; justify-content: space-between; color: var(--muted); }
 
   /* Barra inferior */
@@ -81,8 +83,14 @@
     padding: 8px 16px calc(18px + env(safe-area-inset-bottom, 0px)); display: none;
     box-shadow: 0 -8px 30px rgba(0,0,0,.18); overscroll-behavior: contain; }
   .sheet.open { display: block; }
+  .sheet:not(.dragging) { transition: transform .25s ease, max-height .25s ease; }
+  /* el alto real al minimizar lo fija JS en línea (peekHeight(), según dónde acabe #rutaInfo); esto es el respaldo */
+  .sheet.peek { max-height: 110px; overflow: hidden; }
   @media (min-width: 700px) { .sheet { left: 50%; right: auto; width: 520px; transform: translateX(-50%); } }
-  .grab { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 8px; }
+  /* zona de toque más grande que la barrita visible (::before), para arrastrar cómodo con el dedo */
+  .grab { width: 100%; height: 28px; margin: -8px 0 4px; display: flex; align-items: center; justify-content: center;
+    cursor: grab; touch-action: none; }
+  .grab::before { content: ''; width: 38px; height: 4px; border-radius: 4px; background: var(--line); }
   .close { position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; padding: 0; border-radius: 50%; line-height: 1; font-size: 15px; }
   .sheet h2 { margin: 6px 40px 2px 0; font-size: 21px; letter-spacing: -.01em; font-family: var(--serif); }
   .sheet .zone { margin: 0 0 10px; color: var(--muted); }
@@ -92,8 +100,9 @@
   .chip.cat { color: #fff; border-color: transparent; background: var(--cat-dentro); }
   .chip.cat[data-c="fuera"] { background: var(--cat-fuera); }
   .chip.cat[data-c="otro"] { background: var(--cat-otro); }
-  .chip.ok { color: #fff; background: var(--pin-visitada); border-color: transparent; }
-  .chip.todo { color: var(--pin-pendiente); border-color: var(--pin-pendiente); }
+  /* el chip de estado lleva su color por estilo en línea (son 4 estados editables, ver estadoColor() en app.js) */
+  .ruta-box { display: block; margin: 8px 0 10px; padding: 8px 12px; border-radius: 10px;
+    background: var(--line); font-size: 13px; font-weight: 600; min-height: 1.2em; }
   .actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .actions a { text-decoration: none; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--accent); font-weight: 600; font-size: 13px; }
   .actions a.main { background: var(--accent); color: #fff; }

@@ -9,7 +9,7 @@
   const norm = s => String(s == null ? '' : s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const toNum = v => { const n = parseFloat(String(v).replace(',', '.').replace(/[^\d.\-]/g, '')); return isFinite(n) ? n : null; };
-  const SNAP = ['visitada', 'notas', 'tel', 'precio', 'aforoDet', 'lat', 'lon', 'located', 'approx'];
+  const SNAP = ['estado', 'notas', 'tel', 'precio', 'aforoDet', 'lat', 'lon', 'located', 'approx'];
 
   let edits = {};
   try { edits = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { edits = {}; }
@@ -45,8 +45,10 @@
   document.head.appendChild(st);
 
   /* ---------- formulario ---------- */
+  // mismos 4 estados y mismo orden que ESTADO_LABEL en app.js (duplicado a propósito: archivos independientes)
+  const ESTADO_OPTIONS = [['pendiente', 'Pendiente'], ['esperando', 'Esperando confirmación'], ['descartada', 'Descartada'], ['visitada', 'Visitada']];
   const SECTIONS = [
-    ['Vuestra valoración', [['check', 'visitada', 'Visitada en persona'], ['area', 'notas', 'Notas propias']]],
+    ['Vuestra valoración', [['sel', 'estado', 'Estado', ESTADO_OPTIONS], ['area', 'notas', 'Notas propias']]],
     ['Datos de contacto', [['tel', 'tel', 'Teléfono'], ['text', 'precio', 'Precio orientativo'], ['text', 'aforoDet', 'Aforo (detalle)']]]
   ];
 
@@ -55,6 +57,7 @@
     if (t === 'check') return '<label class="chk"><input type="checkbox" data-f="' + k + '"> ' + esc(l) + '</label>';
     let ctl;
     if (t === 'area') ctl = '<textarea id="' + id + '" data-f="' + k + '"></textarea>';
+    else if (t === 'sel') ctl = '<select id="' + id + '" data-f="' + k + '">' + f[3].map(o => '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>').join('') + '</select>';
     else ctl = '<input id="' + id + '" data-f="' + k + '" type="' + (t === 'tel' ? 'tel' : t === 'url' ? 'url' : 'text') + '">';
     return '<label for="' + id + '">' + esc(l) + '</label>' + ctl;
   }

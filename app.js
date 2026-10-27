@@ -47,20 +47,23 @@
 
   function makeStyle(t) {
     const dk = t === 'dark';
-    // estética castiza: calles y edificios en tonos tierra/latón en vez de azules fríos
+    // estética de boda: calles y edificios en tonos rosa empolvado / salvia / dorado
     const C = dk
-      ? { bg: '#241a14', green: '#2e3620', water: '#1c2e30', casing: '#140d08', minor: '#3a2c1e', major: '#4a3826', motor: '#5c4428', foot: '#2e2318',
-          cols: [0, '#3a2e22', 40, '#5c4530', 100, '#8c6a3e', 150, '#c49a52', 220, '#e8c374'] }
-      : { bg: '#f3e9d8', green: '#c9d1a0', water: '#9cb9bd', casing: '#d9c7a8', minor: '#fff8ec', major: '#fff4e0', motor: '#f0c988', foot: '#e8dcc3',
-          cols: [0, '#e8d9bd', 40, '#d4b483', 100, '#b98a4a', 150, '#8c5a2e', 220, '#5c3a1e'] };
+      ? { bg: '#241c22', green: '#38422f', water: '#1f2a30', casing: '#160f14', minor: '#3a2c30', major: '#4a3540', motor: '#5c3e38', foot: '#2e2228',
+          cols: [0, '#342830', 40, '#4a3540', 100, '#705248', 150, '#a37848', 220, '#cda45e'] }
+      : { bg: '#faf4ec', green: '#c6d0b8', water: '#bcc9cc', casing: '#e3cfd0', minor: '#fffaf5', major: '#fff6ef', motor: '#e8b8a0', foot: '#f0e2de',
+          cols: [0, '#f5e6e0', 40, '#e8c2b8', 100, '#d9a28c', 150, '#c9a24a', 220, '#a8792e'] };
     const wd = b => ['interpolate', ['exponential', 1.5], ['zoom'], 10, b * 0.15, 14, b, 18, b * 8];
     const h = H_EXPR, minH = MINH_EXPR;
     const S = 'ofm';
+    const accent = (getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#b8697d').trim();
     return {
       version: 8, name: 'fincas-cp',
       projection: { type: 'globe' },   // converge con mercator a partir de zoom ~12; solo se nota al alejar del todo
-      sources: { ofm: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' }, fincas: { type: 'geojson', data: geojson(), cluster: true, clusterRadius: 46, clusterMaxZoom: 13 } },
-      light: { anchor: 'viewport', position: [1.4, 215, 35], color: dk ? '#d9a86a' : '#fff4e0', intensity: dk ? 0.35 : 0.42 },
+      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+      sources: { ofm: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' }, fincas: { type: 'geojson', data: geojson(), cluster: true, clusterRadius: 46, clusterMaxZoom: 13 },
+        ruta: { type: 'geojson', data: rutaGeo() }, origen: { type: 'geojson', data: origenGeo() } },
+      light: { anchor: 'viewport', position: [1.4, 215, 35], color: dk ? '#dba878' : '#fff2ec', intensity: dk ? 0.35 : 0.42 },
       // atmósfera del globo en la intro: visible muy alejado, se desvanece al acercarse (se nota poco pasado zoom 5-7)
       sky: dk
         ? { 'sky-color': '#0a0e16', 'horizon-color': '#2a3550', 'fog-color': '#0a0e16', 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0] }
@@ -89,6 +92,25 @@
             'fill-extrusion-color': ['interpolate', ['linear'], h].concat(C.cols),
             'fill-extrusion-opacity': 1, 'fill-extrusion-vertical-gradient': false
           } },
+        // nombres de calle: aparecen a partir de cierto zoom para orientarse, las principales un poco antes que las menores
+        { id: 'calles-nombres-principales', type: 'symbol', source: S, 'source-layer': 'transportation_name', minzoom: 12,
+          filter: ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary'],
+          layout: { 'symbol-placement': 'line', 'text-field': ['coalesce', ['get', 'name:es'], ['get', 'name']],
+            'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 12, 11, 17, 13.5],
+            'text-rotation-alignment': 'map', 'text-pitch-alignment': 'viewport', 'symbol-spacing': 300, 'text-letter-spacing': 0.02 },
+          paint: { 'text-color': dk ? '#f5ebe6' : '#3a2f30', 'text-halo-color': dk ? '#241c22' : '#faf4ec', 'text-halo-width': 1.3 } },
+        { id: 'calles-nombres-menores', type: 'symbol', source: S, 'source-layer': 'transportation_name', minzoom: 14.5,
+          filter: ['in', 'class', 'minor', 'tertiary', 'service'],
+          layout: { 'symbol-placement': 'line', 'text-field': ['coalesce', ['get', 'name:es'], ['get', 'name']],
+            'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 14.5, 10.5, 18, 13],
+            'text-rotation-alignment': 'map', 'text-pitch-alignment': 'viewport', 'symbol-spacing': 250, 'text-letter-spacing': 0.02 },
+          paint: { 'text-color': dk ? '#d8c9c6' : '#5a4a48', 'text-halo-color': dk ? '#241c22' : '#faf4ec', 'text-halo-width': 1.2 } },
+        { id: 'ruta-halo', type: 'line', source: 'ruta', layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': dk ? '#0a0e16' : '#fff4e0', 'line-width': 7, 'line-opacity': 0.6 } },
+        { id: 'ruta', type: 'line', source: 'ruta', layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': accent, 'line-width': 3.5 } },
+        { id: 'origen', type: 'circle', source: 'origen',
+          paint: { 'circle-radius': 6, 'circle-color': accent, 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } },
         { id: 'pin-clusters', type: 'symbol', source: 'fincas', filter: ['has', 'point_count'],
           layout: { 'icon-image': ['concat', 'cl-', ['to-string', ['get', 'point_count']]], 'icon-allow-overlap': true, 'icon-ignore-placement': true } },
         { id: 'pins', type: 'symbol', source: 'fincas', filter: UNCLUSTERED,
@@ -99,25 +121,157 @@
     };
   }
 
-  let theme = 'light', auto = true, userMoved = false, hScale = 1;
+  const theme = 'light';   // sin modo oscuro en este proyecto, siempre claro
+  let auto = true, userMoved = false, hScale = 1;
   // altura de extrusión: crece con el zoom y se multiplica por el control «Altura de edificios»
   const hx = v => ['interpolate', ['linear'], ['zoom'], EXTRUDE_FROM, 0, EXTRUDE_FULL, ['*', v, hScale]];
   let places = [], filter = 'all', sel = null;
 
+  /* ---- Ruta real desde Ayala 71 (OSRM, servidor público de demostración: gratis, sin clave, sin SLA) ---- */
+  const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
+  let rutaFeat = null, rutaReqId = 0;
+  const rutaGeo = () => ({ type: 'FeatureCollection', features: rutaFeat ? [rutaFeat] : [] });
+  const origenGeo = () => ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: ORIGEN.center } }] });
+
+  // las rutas calculadas se guardan en el móvil: se piden a OSRM una sola vez por finca, nunca más
+  const RUTA_KEY = 'fincas-rutas-v1';
+  let rutaCache = {};
+  try { rutaCache = JSON.parse(localStorage.getItem(RUTA_KEY) || '{}'); } catch (e) { rutaCache = {}; }
+  const saveRutaCache = () => { try { localStorage.setItem(RUTA_KEY, JSON.stringify(rutaCache)); } catch (e) { /* sin almacenamiento */ } };
+  const rutaKeyOf = p => norm(p.name) + '|' + norm(p.addr);
+  async function fetchRuta(p) {
+    const k = rutaKeyOf(p);
+    if (rutaCache[k]) return rutaCache[k];
+    const url = OSRM + ORIGEN.center[0] + ',' + ORIGEN.center[1] + ';' + p.lon + ',' + p.lat + '?overview=full&geometries=geojson';
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    const ruta = j.routes && j.routes[0];
+    if (!ruta) throw new Error('sin ruta');
+    const data = { distance: ruta.distance, duration: ruta.duration, geometry: ruta.geometry };
+    rutaCache[k] = data; saveRutaCache();
+    return data;
+  }
+  function clearRuta() {
+    rutaReqId++; rutaFeat = null;
+    const src = map.getSource('ruta'); if (src) src.setData(rutaGeo());
+    const info = $('rutaInfo'); if (info) info.textContent = '';
+  }
+  async function drawRuta(p) {
+    const myId = ++rutaReqId;
+    rutaFeat = null;   // quita la ruta anterior al momento; se dibuja la nueva en cuanto llegue
+    const src0 = map.getSource('ruta'); if (src0) src0.setData(rutaGeo());
+    const info0 = $('rutaInfo'); if (info0) info0.textContent = 'Calculando ruta…';
+    if (!p.located) return;
+    try {
+      const ruta = await fetchRuta(p);
+      if (myId !== rutaReqId) return;   // la ficha cambió mientras llegaba la respuesta
+      rutaFeat = { type: 'Feature', properties: {}, geometry: ruta.geometry };
+      const src = map.getSource('ruta'); if (src) src.setData(rutaGeo());
+      const info = $('rutaInfo');
+      if (info) {
+        const km = (ruta.distance / 1000).toFixed(1).replace('.', ',');
+        const min = Math.round(ruta.duration / 60);
+        info.textContent = km + ' km en coche · ' + min + ' min (ruta real, sin tráfico)';
+      }
+      fitRuta();   // encuadra Ayala 71 + la finca + la carretera real entre ambos, no solo la chincheta
+    } catch (e) {
+      if (myId === rutaReqId) { const info = $('rutaInfo'); if (info) info.textContent = 'No se pudo calcular la ruta ahora mismo.'; }
+    }
+  }
+  // Encuadra toda la ruta dibujada (no solo el destino), dejando hueco para la ficha abierta encima/al lado
+  function fitRuta() {
+    if (!rutaFeat) return;
+    const b = new maplibregl.LngLatBounds();
+    rutaFeat.geometry.coordinates.forEach(c => b.extend(c));
+    const wide = window.innerWidth >= 900;
+    map.fitBounds(b, {
+      padding: wide ? { top: 70, bottom: 60, left: 420, right: 40 } : { top: 70, bottom: Math.round(window.innerHeight * 0.58), left: 30, right: 30 },
+      maxZoom: 15, duration: 900
+    });
+  }
+
+  /* ---- Precarga para uso sin cobertura: teselas del entorno de cada finca + sus rutas.
+     Se hace una sola vez (se guarda en el móvil que ya se hizo); las siguientes aperturas no vuelven a pedir nada. ---- */
+  const PRECACHE_KEY = 'fincas-precache-v1';
+  const PRECACHE_RADIUS_M = 650, PRECACHE_ZMIN = 12, PRECACHE_ZMAX = 17;
+  let tileTemplate = null;
+  async function getTileTemplate() {
+    if (tileTemplate) return tileTemplate;
+    const r = await fetch('https://tiles.openfreemap.org/planet');
+    const j = await r.json();
+    tileTemplate = j.tiles[0];
+    return tileTemplate;
+  }
+  function lonLatToTile(lon, lat, z) {
+    const n = Math.pow(2, z);
+    const x = Math.floor((lon + 180) / 360 * n);
+    const rad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n);
+    return [Math.max(0, Math.min(n - 1, x)), Math.max(0, Math.min(n - 1, y))];
+  }
+  function tilesAround(lat, lon, radiusM, zMin, zMax) {
+    const out = [];
+    for (let z = zMin; z <= zMax; z++) {
+      const dLat = radiusM / 111320, dLon = radiusM / (111320 * Math.cos(lat * Math.PI / 180));
+      const [x0, y0] = lonLatToTile(lon - dLon, lat + dLat, z);
+      const [x1, y1] = lonLatToTile(lon + dLon, lat - dLat, z);
+      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) out.push([z, x, y]);
+    }
+    return out;
+  }
+  async function precacheOffline(list) {
+    let done = [];
+    try { done = JSON.parse(localStorage.getItem(PRECACHE_KEY) || '[]'); } catch (e) { done = []; }
+    const doneSet = new Set(done);
+    const locs = list.filter(p => p.located && !doneSet.has(rutaKeyOf(p)));
+    if (!locs.length) return;   // ya se precargó todo (por nombre+dirección) en una visita anterior
+    const info = $('precacheInfo');
+    if (info) info.style.display = 'flex';
+    try {
+      const tpl = await getTileTemplate();
+      for (let i = 0; i < locs.length; i++) {
+        const p = locs[i];
+        if (info) info.textContent = 'Precargando para sin cobertura… finca ' + (i + 1) + '/' + locs.length;
+        await fetchRuta(p).catch(() => {});   // guarda la ruta en caché; si falla, no bloquea la precarga de teselas
+        const tiles = tilesAround(p.lat, p.lon, PRECACHE_RADIUS_M, PRECACHE_ZMIN, PRECACHE_ZMAX);
+        const BATCH = 8;
+        for (let j = 0; j < tiles.length; j += BATCH) {
+          await Promise.all(tiles.slice(j, j + BATCH).map(([z, x, y]) => {
+            const url = tpl.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+            return fetch(url).catch(() => {});   // el service worker guarda cada tesela al vuelo
+          }));
+        }
+        doneSet.add(rutaKeyOf(p));
+        try { localStorage.setItem(PRECACHE_KEY, JSON.stringify(Array.from(doneSet))); } catch (e) { /* sin almacenamiento */ }
+      }
+    } catch (e) { /* sin red o servidor caído: se reintenta en la próxima visita desde donde se quedó */ }
+    if (info) info.style.display = 'none';
+  }
+
+  /* ---- Estados de cada finca: de un vistazo por el color de la chincheta ---- */
+  const ESTADOS = ['pendiente', 'esperando', 'descartada', 'visitada'];
+  const ESTADO_LABEL = { pendiente: 'Pendiente', esperando: 'Esperando confirmación', descartada: 'Descartada', visitada: 'Visitada ✓' };
+  const ESTADO_VAR = { pendiente: '--pin-pendiente', esperando: '--pin-esperando', descartada: '--pin-descartada', visitada: '--pin-visitada' };
+  const ESTADO_FALLBACK = { pendiente: '#b8697d', esperando: '#d9a93f', descartada: '#b2473f', visitada: '#7c8c6e' };
+  const estadoColor = e => 'var(' + (ESTADO_VAR[e] || ESTADO_VAR.pendiente) + ')';
+
   /* ---- Chinchetas dibujadas por el propio mapa (GPU): mucho más fluido que elementos HTML ---- */
   function geojson() {
     return { type: 'FeatureCollection', features: places.filter(p => p.located && match(p)).map(p => ({
-      type: 'Feature', properties: { idx: p.idx, done: p.visitada, approx: p.approx },
+      type: 'Feature', properties: { idx: p.idx, estado: p.estado, approx: p.approx },
       geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })) };
   }
   const UNCLUSTERED = ['!', ['has', 'point_count']];
   const selFilter = i => ['all', UNCLUSTERED, ['==', ['get', 'idx'], i == null ? -1 : i]];
-  const PIN_IMG = ['concat', ['case', ['get', 'done'], 'pin-done', 'pin-todo'], ['case', ['get', 'approx'], '-a', '']];
+  const PIN_IMG = ['concat', 'pin-', ['get', 'estado'], ['case', ['get', 'approx'], '-a', '']];
   const PIN_PATH = 'M14 1.8C7.2 1.8 2 7 2 13.4 2 21.8 14 34.2 14 34.2S26 21.8 26 13.4C26 7 20.8 1.8 14 1.8z';
   function pinImage(id) {
-    const done = id.indexOf('done') > -1, dashed = /-a$/.test(id);
+    // id tiene forma "pin-<estado>" o "pin-<estado>-a" (ubicación aproximada)
+    const dashed = /-a$/.test(id);
+    const estado = id.replace(/^pin-/, '').replace(/-a$/, '');
     const css = getComputedStyle(document.documentElement);
-    const fill = (css.getPropertyValue(done ? '--pin-visitada' : '--pin-pendiente') || '#a3281f').trim();
+    const fill = (css.getPropertyValue(ESTADO_VAR[estado] || ESTADO_VAR.pendiente) || ESTADO_FALLBACK[estado] || ESTADO_FALLBACK.pendiente).trim();
     const S = 2, c = document.createElement('canvas');
     c.width = 28 * S; c.height = 36 * S;
     const x = c.getContext('2d'); x.scale(S, S);
@@ -133,7 +287,7 @@
     const S = 2, sz = 38, c = document.createElement('canvas');
     c.width = c.height = sz * S;
     const x = c.getContext('2d'); x.scale(S, S);
-    const accent = (getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#7a2530').trim();
+    const accent = (getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#b8697d').trim();
     x.beginPath(); x.arc(sz / 2, sz / 2, sz / 2 - 2, 0, Math.PI * 2);
     x.shadowColor = 'rgba(0,0,0,.3)'; x.shadowBlur = 2; x.shadowOffsetY = 1;
     x.fillStyle = accent; x.fill();
@@ -228,12 +382,6 @@
     closeSheets();
     map.flyTo({ center: ORIGEN.center, zoom: ORIGEN.zoom, pitch: 0, bearing: 0, speed: 1, curve: 1.3 });
   });
-  $('theme').addEventListener('click', () => {
-    theme = theme === 'light' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : '';
-    $('theme').textContent = theme === 'dark' ? 'Modo claro' : 'Modo oscuro';
-    map.setStyle(makeStyle(theme));
-  });
 
   const msg = $('msg');
   let errors = 0;
@@ -261,7 +409,7 @@
       googleNota: toNum(g('googleNota')), googleResenas: toNum(g('googleResenas')), bodasNet: String(g('bodasNet') || ''),
       tel: String(g('tel') || ''), src: String(g('src') || ''), tiempoCoche: toNum(g('tiempoCoche')), insta: String(g('insta') || '').replace(/^@/, ''),
       categoria: categoria || String(g('categoria') || 'dentro'),
-      visitada: false,
+      estado: 'pendiente',
       lat: toNum(g('lat')), lon: toNum(g('lon')), located: false, approx: false, failed: false
     };
     if (p.lat != null && p.lon != null && p.lat > 39.5 && p.lat < 41.2 && p.lon > -4.6 && p.lon < -3) p.located = true;
@@ -380,7 +528,7 @@
 
   /* ================== CHINCHETAS (capa del mapa) ================== */
   function match(p) { return filter === 'all' || p.categoria === filter; }
-  map.on('style.load', () => ['pin-todo', 'pin-done', 'pin-todo-a', 'pin-done-a'].forEach(ensureImage));
+  map.on('style.load', () => ESTADOS.concat(ESTADOS.map(e => e + '-a')).map(e => 'pin-' + e).forEach(ensureImage));
   map.on('styleimagemissing', e => ensureImage(e.id));
   let syncT = 0;
   function syncPins() {
@@ -398,13 +546,60 @@
   function closeSheets() {
     card.classList.remove('open'); listEl.classList.remove('open');
     document.body.classList.remove('sheet-open');
-    if (sel) { sel = null; setSel(null); }
+    if (sel) { sel = null; setSel(null); clearRuta(); }
   }
   function openSheet(el) {
-    card.classList.remove('open'); listEl.classList.remove('open');
+    [card, listEl].forEach(s => { s.classList.remove('open', 'peek'); s.style.maxHeight = ''; });
     el.classList.add('open'); document.body.classList.add('sheet-open'); el.scrollTop = 0;
     const cb = el.querySelector('.close'); if (cb) cb.focus({ preventScroll: true });   // el foco pasa a la hoja (teclado y lector de pantalla)
   }
+
+  // Al minimizar, la hoja se recorta justo debajo de #rutaInfo (distancia/tiempo) si existe,
+  // o debajo del título si no — así "bajar el nombre" deja ver ese cuadro, no solo el nombre a secas.
+  function peekHeight(sheetEl) {
+    const ref = sheetEl.querySelector('#rutaInfo') || sheetEl.querySelector('h2');
+    if (!ref) return 70;
+    return Math.ceil(ref.getBoundingClientRect().bottom - sheetEl.getBoundingClientRect().top) + 12;
+  }
+  function enterPeek(sheetEl) { sheetEl.style.maxHeight = peekHeight(sheetEl) + 'px'; sheetEl.classList.add('peek'); }
+  function exitPeek(sheetEl) { sheetEl.classList.remove('peek'); sheetEl.style.maxHeight = ''; }
+
+  // Arrastrar el tirador hacia abajo minimiza la ficha a solo el nombre («peek»); arrastrar hacia
+  // arriba (o tocar el tirador) la vuelve a abrir del todo. Así se puede ver el mapa sin cerrar la ficha.
+  // Delegado en el propio <section>, no en .grab: card.innerHTML se reemplaza en cada select() y
+  // un listener puesto directamente en .grab quedaría huérfano en cuanto se recrease el nodo.
+  function setupDrag(sheetEl) {
+    const THRESH = 60;
+    let startY = 0, dragging = false, wasPeek = false, moved = false, pid = null;
+    sheetEl.addEventListener('pointerdown', e => {
+      if (!e.target.closest('.grab')) return;
+      dragging = true; moved = false; wasPeek = sheetEl.classList.contains('peek');
+      startY = e.clientY; pid = e.pointerId;
+      sheetEl.classList.add('dragging');
+      sheetEl.setPointerCapture(pid);
+    });
+    sheetEl.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== pid) return;
+      const dy = e.clientY - startY;
+      if (Math.abs(dy) > 4) moved = true;
+      // 700-899px el CSS centra la hoja con translateX(-50%): hay que conservarlo al arrastrar
+      const baseT = (window.innerWidth >= 700 && window.innerWidth < 900) ? 'translateX(-50%) ' : '';
+      if ((!wasPeek && dy > 0) || (wasPeek && dy < 0)) sheetEl.style.transform = baseT + 'translateY(' + dy + 'px)';
+    });
+    const endDrag = e => {
+      if (!dragging || e.pointerId !== pid) return;
+      dragging = false;
+      sheetEl.classList.remove('dragging');
+      sheetEl.style.transform = '';
+      const dy = e.clientY - startY;
+      if (!wasPeek && dy > THRESH) enterPeek(sheetEl);
+      else if (wasPeek && dy < -THRESH) exitPeek(sheetEl);
+      else if (!moved) { if (sheetEl.classList.contains('peek')) exitPeek(sheetEl); else enterPeek(sheetEl); }
+    };
+    sheetEl.addEventListener('pointerup', endDrag);
+    sheetEl.addEventListener('pointercancel', endDrag);
+  }
+  setupDrag(card); setupDrag(listEl);
   const row = (label, html) => html ? '<div class="r"><dt>' + label + '</dt><dd>' + html + '</dd></div>' : '';
   const CAT_LABEL = { dentro: 'Dentro de 20 km', fuera: '20-24 km', otro: 'Otro espacio' };
 
@@ -420,13 +615,15 @@
 
     const aforo = p.aforoDet || (p.aforoMin != null || p.aforoMax != null ? [p.aforoMin, p.aforoMax].filter(x => x != null).join('–') + ' invitados' : '');
     const precioInv = p.precioInv != null ? eur(p.precioInv) + '/invitado' : '';
-    const precio120 = p.precio120 != null ? '≈ ' + eur(p.precio120) + ' para 120 invitados' : '';
+    // precio por invitado: directo si lo da el local, si no se deriva del coste para 120 que trae el Excel
+    const perGuest = p.precioInv != null ? p.precioInv : (p.precio120 != null ? p.precio120 / 120 : null);
+    const precioEst = perGuest != null ? '≈ ' + eur(perGuest * 250) + ' – ' + eur(perGuest * 300) + ' para 250-300 invitados' : '';
     const googleR = p.googleNota != null ? p.googleNota.toString().replace('.', ',') + ' / 5' + (p.googleResenas != null ? ' (' + p.googleResenas + ' reseñas)' : '') : '';
 
     const detailRows = [
       row('Tipo de espacio', esc(p.tipo)), row('Dirección', esc(p.addr)), row('Tiempo en coche desde Ayala 71', p.tiempoCoche != null ? p.tiempoCoche + ' min' : ''),
       row('Aforo', esc(aforo)), row('Salones / espacios', esc(p.salones)), row('¿Uno o varios?', esc(p.unoVarios)),
-      row('Precio orientativo', esc(p.precio)), row('Menú', [esc(precioInv), esc(precio120)].filter(Boolean).join(' · ')),
+      row('Precio orientativo', esc(p.precio)), row('Menú', [esc(precioInv), esc(precioEst)].filter(Boolean).join(' · ')),
       row('Catering', esc(p.catering)), row('¿Catering libre?', esc(p.cateringLibre)),
       row('Terraza / jardín', esc(p.terraza)), row('Zona de novios', esc(p.novios)), row('Ceremonia en la finca', esc(p.ceremonia)),
       row('Alojamiento', esc(p.alojamiento)), row('Parking', esc(p.parking)), row('Horario', esc(p.horario)),
@@ -434,9 +631,12 @@
       row('Notas', esc(p.notas))
     ].join('');
 
+    const estadoChip = '<span class="chip estado" style="background:' + estadoColor(p.estado) + ';color:#fff;border-color:transparent">' + esc(ESTADO_LABEL[p.estado] || ESTADO_LABEL.pendiente) + '</span>';
+
     return '<div class="grab"></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button>' +
       '<h2>' + esc(p.name) + '</h2><p class="zone">' + esc(p.zona) + '</p>' +
-      '<div class="chips">' + cat + distChip + (p.visitada ? '<span class="chip ok">Visitada ✓</span>' : '<span class="chip todo">Pendiente</span>') + '</div>' +
+      (p.located ? '<p id="rutaInfo" class="ruta-box"></p>' : '') +
+      '<div class="chips">' + cat + distChip + estadoChip + '</div>' +
       '<div class="actions"><a class="main" href="' + g + '" target="_blank" rel="noopener">Google Maps</a>' +
       (ruta ? '<a href="' + ruta + '" target="_blank" rel="noopener">Ruta desde Ayala 71</a>' : '') +
       '<a href="' + a + '" target="_blank" rel="noopener">Apple Maps</a>' +
@@ -453,6 +653,7 @@
     sel = p; setSel(p);
     card.innerHTML = cardHtml(p);
     openSheet(card);
+    drawRuta(p);
     if (fly && p.located) {
       map.flyTo({
         center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 14.5), bearing: map.getBearing(),
@@ -467,7 +668,7 @@
     const t = norm($('search').value);
     const items = places.filter(p => match(p) && (!t || norm(p.name + ' ' + p.zona + ' ' + p.tipo).includes(t)));
     $('items').innerHTML = items.length ? items.map(p =>
-      '<button type="button" class="item' + (p.visitada ? ' done' : '') + '" data-i="' + p.idx + '"><span class="dot"></span>' +
+      '<button type="button" class="item" data-i="' + p.idx + '"><span class="dot" style="background:' + estadoColor(p.estado) + '"></span>' +
       '<span class="t"><b>' + esc(p.name) + '</b><span>' + esc(p.zona) + (p.dist != null ? ' · ' + esc(String(p.dist).replace('.', ',')) + ' km' : '') + '</span></span>' +
       (p.located ? '' : '<span class="tag">sin ubicar</span>') + '</button>').join('') : '<p class="empty">No hay fincas con ese filtro.</p>';
     document.querySelectorAll('#bar [data-f]').forEach(b => {
@@ -515,6 +716,7 @@
     renderList();
     fitAll();
     geocodeAll();
+    precacheOffline(places);   // en segundo plano; no bloquea nada de lo anterior
   }
 
   function start() {
