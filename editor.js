@@ -182,55 +182,60 @@
     A.refresh(); if (A.geocode) A.geocode();
   }
 
-  /* ---------- sincronizar entre dispositivos (Firebase Firestore, en tiempo real) ----------
-     Para activarlo: crea un proyecto gratuito en https://console.firebase.google.com, activa
-     Firestore Database y Authentication > Anonymous, y pega aquí la configuración que te da
-     "Configuración del proyecto > tus apps > SDK de Firebase". Mientras quede vacío, la app
-     sigue funcionando igual que siempre, guardando solo en este dispositivo. */
-  const FIREBASE_CONFIG = {
-    apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
-  };
+  /* ---------- sincronizar entre dispositivos (Supabase, en tiempo real) ----------
+     Para activarlo: crea un proyecto gratuito en https://supabase.com, crea la tabla y las
+     políticas con el SQL del README (sección "Activar la sincronización"), activa el inicio de
+     sesión anónimo (Authentication > Providers > Anonymous) y pega aquí la URL del proyecto y la
+     clave "anon public" (Project Settings > API). Mientras quede vacío, la app sigue funcionando
+     igual que siempre, guardando solo en este dispositivo. */
+  const SUPABASE_URL = '';
+  const SUPABASE_ANON_KEY = '';
   const BOARD_KEY = 'fincas-board-v1';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // sin 0/O ni 1/I/L para no confundirlos al copiar
   function genCode() { let s = ''; for (let i = 0; i < 8; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
 
-  let fsApi = null, fsDoc = null, fsUnsub = null, syncStatusEl = null;
+  let sb = null, sbChannel = null, syncStatusEl = null, currentCode = null;
   const setSyncStatus = t => { if (syncStatusEl) syncStatusEl.textContent = t; };
 
-  async function loadFirebase() {
-    if (fsApi) return fsApi;
-    const [{ initializeApp }, fsMod, authMod] = await Promise.all([
-      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js'),
-      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js')
-    ]);
-    const app = initializeApp(FIREBASE_CONFIG);
-    const db = fsMod.getFirestore(app);
-    await authMod.signInAnonymously(authMod.getAuth(app));
-    fsApi = { db: db, doc: fsMod.doc, onSnapshot: fsMod.onSnapshot, setDoc: fsMod.setDoc };
-    return fsApi;
+  async function loadSupabase() {
+    if (sb) return sb;
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await sb.auth.getSession();
+    if (!data || !data.session) await sb.auth.signInAnonymously();
+    return sb;
   }
 
   function pushEdits() {
-    if (!fsDoc || !fsApi) return;
-    fsApi.setDoc(fsDoc, { cambios: edits, actualizado: Date.now() }).catch(() => {});
+    if (!sb || !currentCode) return;
+    sb.from('boards').upsert({ code: currentCode, cambios: edits, actualizado: new Date().toISOString() }).then(() => {});
+  }
+
+  function onRemoteEdits(remote) {
+    if (JSON.stringify(remote) === JSON.stringify(edits)) return;   // es el eco de lo que acabamos de escribir: nada que hacer
+    edits = remote || {};
+    try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch (e) { /* sin almacenamiento */ }
+    updateCount(); reapplyAll();
   }
 
   async function startSync(code) {
-    if (!FIREBASE_CONFIG.apiKey || !code) return;
+    if (!SUPABASE_URL || !code) return;
     setSyncStatus('Conectando…');
     try {
-      const api = await loadFirebase();
-      if (fsUnsub) { fsUnsub(); fsUnsub = null; }
-      fsDoc = api.doc(api.db, 'boards', code);
-      fsUnsub = api.onSnapshot(fsDoc, snap => {
-        if (snap.metadata.hasPendingWrites) return;   // eco de nuestra propia escritura: ya lo tenemos aplicado
-        if (!snap.exists()) { pushEdits(); setSyncStatus('Sincronizado · código ' + code); return; }
-        edits = (snap.data() || {}).cambios || {};
-        try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch (e) { /* sin almacenamiento */ }
-        updateCount(); reapplyAll();
-        setSyncStatus('Sincronizado · código ' + code);
-      }, () => setSyncStatus('No se pudo conectar. Los cambios se siguen guardando solo en este dispositivo.'));
+      const client = await loadSupabase();
+      if (sbChannel) { client.removeChannel(sbChannel); sbChannel = null; }
+      currentCode = code;
+      const { data, error } = await client.from('boards').select('cambios').eq('code', code).maybeSingle();
+      if (error) throw error;
+      if (data) onRemoteEdits(data.cambios || {});
+      else await client.from('boards').upsert({ code: code, cambios: edits });
+      sbChannel = client.channel('boards-' + code)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'boards', filter: 'code=eq.' + code },
+          payload => onRemoteEdits((payload.new && payload.new.cambios) || {}))
+        .subscribe(status => {
+          if (status === 'SUBSCRIBED') setSyncStatus('Sincronizado · código ' + code);
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncStatus('No se pudo conectar. Los cambios se siguen guardando solo en este dispositivo.');
+        });
       try { localStorage.setItem(BOARD_KEY, code); } catch (e) { /* sin almacenamiento */ }
     } catch (e) {
       setSyncStatus('No se pudo conectar. Los cambios se siguen guardando solo en este dispositivo.');
@@ -268,7 +273,7 @@
     syncStatusEl = $('vtSyncStatus');
     const syncCodeInput = $('vtSyncCode'), linkRow = $('vtSyncLinkRow');
     const showLink = code => { linkRow.style.display = code ? '' : 'none'; };
-    if (!FIREBASE_CONFIG.apiKey) {
+    if (!SUPABASE_URL) {
       setSyncStatus('Sincronización no configurada todavía.');
       $('vtSyncCreate').disabled = true; $('vtSyncJoin').disabled = true;
     } else {
