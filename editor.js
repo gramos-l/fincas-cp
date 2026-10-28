@@ -13,7 +13,7 @@
 
   let edits = {};
   try { edits = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { edits = {}; }
-  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch (e) { /* sin almacenamiento */ } updateCount(); };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch (e) { /* sin almacenamiento */ } updateCount(); pushEdits(); };
   const keyOf = p => norm(p.name) + '|' + norm(p.addr);
   const fixup = (p, e) => {
     if (('lat' in e || 'lon' in e) && isFinite(p.lat) && isFinite(p.lon) && p.lat != null && p.lon != null) { p.located = true; p.approx = false; }
@@ -176,6 +176,66 @@
   }
   let countEl = null;
   function updateCount() { if (countEl) countEl.textContent = count() ? count() + ' fincas con cambios en este móvil' : 'Sin cambios todavía'; }
+  function reapplyAll() {
+    const A = VT.app; if (!A) return;
+    A.places().forEach(p => { if (p._orig) { SNAP.forEach(s => { p[s] = p._orig[s]; }); apply(p); } });
+    A.refresh(); if (A.geocode) A.geocode();
+  }
+
+  /* ---------- sincronizar entre dispositivos (Firebase Firestore, en tiempo real) ----------
+     Para activarlo: crea un proyecto gratuito en https://console.firebase.google.com, activa
+     Firestore Database y Authentication > Anonymous, y pega aquí la configuración que te da
+     "Configuración del proyecto > tus apps > SDK de Firebase". Mientras quede vacío, la app
+     sigue funcionando igual que siempre, guardando solo en este dispositivo. */
+  const FIREBASE_CONFIG = {
+    apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: ''
+  };
+  const BOARD_KEY = 'fincas-board-v1';
+  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // sin 0/O ni 1/I/L para no confundirlos al copiar
+  function genCode() { let s = ''; for (let i = 0; i < 8; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
+
+  let fsApi = null, fsDoc = null, fsUnsub = null, syncStatusEl = null;
+  const setSyncStatus = t => { if (syncStatusEl) syncStatusEl.textContent = t; };
+
+  async function loadFirebase() {
+    if (fsApi) return fsApi;
+    const [{ initializeApp }, fsMod, authMod] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js'),
+      import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js')
+    ]);
+    const app = initializeApp(FIREBASE_CONFIG);
+    const db = fsMod.getFirestore(app);
+    await authMod.signInAnonymously(authMod.getAuth(app));
+    fsApi = { db: db, doc: fsMod.doc, onSnapshot: fsMod.onSnapshot, setDoc: fsMod.setDoc };
+    return fsApi;
+  }
+
+  function pushEdits() {
+    if (!fsDoc || !fsApi) return;
+    fsApi.setDoc(fsDoc, { cambios: edits, actualizado: Date.now() }).catch(() => {});
+  }
+
+  async function startSync(code) {
+    if (!FIREBASE_CONFIG.apiKey || !code) return;
+    setSyncStatus('Conectando…');
+    try {
+      const api = await loadFirebase();
+      if (fsUnsub) { fsUnsub(); fsUnsub = null; }
+      fsDoc = api.doc(api.db, 'boards', code);
+      fsUnsub = api.onSnapshot(fsDoc, snap => {
+        if (snap.metadata.hasPendingWrites) return;   // eco de nuestra propia escritura: ya lo tenemos aplicado
+        if (!snap.exists()) { pushEdits(); setSyncStatus('Sincronizado · código ' + code); return; }
+        edits = (snap.data() || {}).cambios || {};
+        try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch (e) { /* sin almacenamiento */ }
+        updateCount(); reapplyAll();
+        setSyncStatus('Sincronizado · código ' + code);
+      }, () => setSyncStatus('No se pudo conectar. Los cambios se siguen guardando solo en este dispositivo.'));
+      try { localStorage.setItem(BOARD_KEY, code); } catch (e) { /* sin almacenamiento */ }
+    } catch (e) {
+      setSyncStatus('No se pudo conectar. Los cambios se siguen guardando solo en este dispositivo.');
+    }
+  }
 
   const host = $('hudbody');
   if (host) {
@@ -183,7 +243,11 @@
     wrap.innerHTML = '<div class="row" style="display:block"><b>Mis cambios</b><div id="vtEditCount" style="color:var(--muted);font-size:12.5px"></div></div>' +
       '<div class="row"><button type="button" id="vtExp">Exportar cambios</button><button type="button" id="vtImp">Importar cambios</button><input type="file" id="vtImpFile" accept=".json,application/json" hidden></div>' +
       '<div class="row"><button type="button" id="vtExpXlsx">Exportar a Excel</button></div>' +
-      '<p class="hint" style="font-size:12.5px;color:var(--muted);margin:2px 0 0">Descarga un Excel con los datos originales más tus ediciones (estado, notas, posición…), con las mismas hojas y columnas que el Excel de origen.</p>';
+      '<p class="hint" style="font-size:12.5px;color:var(--muted);margin:2px 0 0">Descarga un Excel con los datos originales más tus ediciones (estado, notas, posición…), con las mismas hojas y columnas que el Excel de origen.</p>' +
+      '<div class="row" style="display:block;margin-top:10px"><b>Sincronizar con otra persona</b><div id="vtSyncStatus" style="color:var(--muted);font-size:12.5px">Sin sincronizar: cada dispositivo guarda sus propios cambios.</div></div>' +
+      '<div class="row"><button type="button" id="vtSyncCreate">Crear código para compartir</button></div>' +
+      '<div class="row"><input type="text" id="vtSyncCode" placeholder="Código" maxlength="8" style="width:100px;text-transform:uppercase"><button type="button" id="vtSyncJoin">Unirme con un código</button></div>' +
+      '<div class="row" id="vtSyncLinkRow" style="display:none"><button type="button" id="vtSyncCopy">Copiar enlace para compartir</button></div>';
     host.appendChild(wrap);
     countEl = $('vtEditCount'); updateCount();
     $('vtExp').addEventListener('click', () => download('fincas-cambios.json', JSON.stringify({ version: 1, cambios: edits }, null, 1)));
@@ -195,12 +259,35 @@
         const j = JSON.parse(await f.text()), c = j && j.cambios;
         if (!c || typeof c !== 'object') throw new Error('formato');
         Object.keys(c).forEach(k => { edits[k] = Object.assign(edits[k] || {}, c[k]); });
-        persist();
-        const A = VT.app; if (A) { A.places().forEach(p => { if (p._orig) { SNAP.forEach(s => { p[s] = p._orig[s]; }); apply(p); } }); A.refresh(); if (A.geocode) A.geocode(); }
+        persist(); reapplyAll();
         alert('Cambios importados.');
       } catch (e) { alert('No se pudo leer ese archivo de cambios.'); }
       ev.target.value = '';
     });
+
+    syncStatusEl = $('vtSyncStatus');
+    const syncCodeInput = $('vtSyncCode'), linkRow = $('vtSyncLinkRow');
+    const showLink = code => { linkRow.style.display = code ? '' : 'none'; };
+    if (!FIREBASE_CONFIG.apiKey) {
+      setSyncStatus('Sincronización no configurada todavía.');
+      $('vtSyncCreate').disabled = true; $('vtSyncJoin').disabled = true;
+    } else {
+      const urlCode = new URLSearchParams(location.search).get('sync');
+      let savedCode = null; try { savedCode = localStorage.getItem(BOARD_KEY); } catch (e) { /* sin almacenamiento */ }
+      const code0 = (urlCode || savedCode || '').toUpperCase();
+      if (code0) { syncCodeInput.value = code0; showLink(code0); startSync(code0); }
+      $('vtSyncCreate').addEventListener('click', () => { const code = genCode(); syncCodeInput.value = code; showLink(code); startSync(code); });
+      $('vtSyncJoin').addEventListener('click', () => {
+        const code = syncCodeInput.value.trim().toUpperCase();
+        if (code.length < 4) { alert('Escribe el código que te ha pasado la otra persona.'); return; }
+        showLink(code); startSync(code);
+      });
+      $('vtSyncCopy').addEventListener('click', () => {
+        const url = location.origin + location.pathname + '?sync=' + syncCodeInput.value.trim().toUpperCase();
+        if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => alert('Enlace copiado:\n' + url)).catch(() => prompt('Copia este enlace:', url));
+        else prompt('Copia este enlace:', url);
+      });
+    }
   }
 
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-edit]'); if (b) openEditor(+b.getAttribute('data-edit')); });
