@@ -188,8 +188,8 @@
      sesión anónimo (Authentication > Providers > Anonymous) y pega aquí la URL del proyecto y la
      clave "anon public" (Project Settings > API). Mientras quede vacío, la app sigue funcionando
      igual que siempre, guardando solo en este dispositivo. */
-  const SUPABASE_URL = '';
-  const SUPABASE_ANON_KEY = '';
+  const SUPABASE_URL = 'https://inzmoamdbwseclkwnuys.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_AUtLBBKkcc4wJQBEE5x5ag_rnkPuzMJ';
   const BOARD_KEY = 'fincas-board-v1';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // sin 0/O ni 1/I/L para no confundirlos al copiar
   function genCode() { let s = ''; for (let i = 0; i < 8; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
