@@ -9,6 +9,8 @@ Mapa interactivo en 3D de fincas de boda a 20-24 km de Calle de Ayala 71 (Madrid
 - Ficha al pinchar una chincheta: precio, aforo, catering, amenidades, valoraciones (Google / bodas.net), teléfono, enlaces a Google Maps, ruta desde Ayala 71, web e Instagram.
 - Filtros: Todas / Dentro de 20 km / 20-24 km / Otros espacios. Lista con buscador.
 - Edición local (botón **Editar** en la ficha): marcar visitada, notas propias, mover la chincheta — se guarda en el móvil y se puede exportar/importar.
+- **Cargar mi Excel** (en Opciones): si prefieres rellenar un Excel con tus propios datos en vez de editar en la app, lo cargas ahí — se guarda en este dispositivo y el mapa lo usa en cada visita (botón **Quitar mi Excel** para volver al del repositorio).
+- **Exportar a Excel** (en Opciones): descarga un `.xlsx` con las mismas hojas y columnas que el original, más una columna de Estado con tus ediciones de la app.
 - Intro: el mapa arranca viendo la Tierra desde el espacio y baja hasta Ayala 71.
 - Caché en el móvil (service worker): las visitas siguientes cargan más rápido.
 

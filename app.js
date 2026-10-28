@@ -8,6 +8,7 @@
   const SHEETS = { 'Fincas 20 km': 'dentro', 'Justo fuera 20-24 km': 'fuera', 'Otros espacios': 'otro' };
   const SHEETJS = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
   const GEO_KEY = 'fincas-geo-v1';
+  const CUSTOM_XLSX_KEY = 'fincas-custom-xlsx-v1';   // tu propio Excel, guardado en este dispositivo
   const PIXEL_RATIO_MAX = 1.5;   // más bajo = más fluido; súbelo a 2 si prefieres más nitidez
 
   const ORIGEN = { center: [-3.676147, 40.427407], zoom: 10.2, pitch: 0, bearing: 0 };   // Calle de Ayala 71
@@ -443,7 +444,29 @@
     return out;
   }
 
+  function bufToB64(buf) {
+    let bin = '';
+    const bytes = new Uint8Array(buf), chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    return btoa(bin);
+  }
+  function b64ToBuf(b64) {
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+  function getCustomXlsx() { try { return JSON.parse(localStorage.getItem(CUSTOM_XLSX_KEY) || 'null'); } catch (e) { return null; } }
+  function clearCustomXlsx() { try { localStorage.removeItem(CUSTOM_XLSX_KEY); } catch (e) { /* sin almacenamiento */ } }
+
   async function loadData() {
+    const custom = getCustomXlsx();
+    if (custom) {
+      try {
+        const list = await parseWorkbook(b64ToBuf(custom.data));
+        if (list.length) return { list: list, from: 'tu Excel', name: custom.name };
+      } catch (e) { /* el Excel guardado no se pudo leer: se descarta y se sigue con el del repositorio */ }
+      clearCustomXlsx();
+    }
     try {
       const r = await fetch(DATA_XLSX, { cache: 'no-cache' });
       if (r.ok) { const list = await parseWorkbook(await r.arrayBuffer()); if (list.length) return { list: list, from: 'Excel' }; }
@@ -740,14 +763,22 @@
   }
   if (map.loaded()) playGlobeIntro(); else map.once('load', playGlobeIntro);
 
-  // Probar un Excel sin subirlo a GitHub (solo en este móvil)
+  // Cargar tu propio Excel: se guarda en este dispositivo y se usa en cada visita hasta que lo quites
+  const customInfo = $('customXlsxInfo'), customName = $('customXlsxName');
+  function showCustomXlsxUI(name) { if (!customInfo) return; customName.textContent = name; customInfo.style.display = ''; }
+  function hideCustomXlsxUI() { if (!customInfo) return; customInfo.style.display = 'none'; }
+  (function initCustomXlsxUI() { const c = getCustomXlsx(); if (c) showCustomXlsxUI(c.name); })();
+
   $('loadXlsx').addEventListener('click', () => $('file').click());
   $('file').addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     try {
       userMoved = false;
-      setPlaces(await parseWorkbook(await f.arrayBuffer()));
-      geoBox.classList.add('on'); geoText.textContent = 'Datos leídos de ' + f.name + ' (solo en este móvil)';
+      const buf = await f.arrayBuffer();
+      setPlaces(await parseWorkbook(buf));
+      try { localStorage.setItem(CUSTOM_XLSX_KEY, JSON.stringify({ name: f.name, data: bufToB64(buf) })); showCustomXlsxUI(f.name); }
+      catch (e2) { /* no cupo en el almacenamiento: se usa solo en esta visita */ }
+      geoBox.classList.add('on'); geoText.textContent = 'Usando tu Excel: ' + f.name + ' (guardado en este dispositivo)';
       setTimeout(() => { if (!geoRunning && !places.some(p => !p.located)) geoBox.classList.remove('on'); }, 3500);
     } catch (err) {
       msg.style.display = 'block'; msg.textContent = 'No se pudo leer ese Excel.';
@@ -755,11 +786,16 @@
     }
     e.target.value = '';
   });
+  const clearBtn = $('clearXlsx');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    clearCustomXlsx(); hideCustomXlsxUI();
+    loadData().then(r => setPlaces(r.list)).catch(() => {});
+  });
 
   // para el editor (editor.js)
   window.VT = window.VT || {};
-  window.VT.app = { places: () => places, select: select, map: map, COL: COL, geocode: geocodeAll,
-    refresh: () => { syncPins(); renderList(); } };
+  window.VT.app = { places: () => places, select: select, map: map, COL: COL, SHEETS: SHEETS, geocode: geocodeAll,
+    ensureXLSX: loadSheetJS, refresh: () => { syncPins(); renderList(); } };
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });

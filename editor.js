@@ -142,10 +142,37 @@
   }
 
   /* ---------- exportar e importar ---------- */
-  function download(name, text) {
-    const a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  function download(name, text, type) {
+    const a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type: type || 'application/json' }));
     a.href = url; a.download = name; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+
+  /* ---------- exportar a Excel (datos originales + tus ediciones) ---------- */
+  const ESTADO_LABEL = {};
+  ESTADO_OPTIONS.forEach(o => { ESTADO_LABEL[o[0]] = o[1]; });
+
+  function placeToRow(p, COL) {
+    const row = {};
+    Object.keys(COL).forEach(k => { if (k !== 'categoria') row[COL[k]] = p[k] == null ? '' : p[k]; });
+    row['Estado (en la app)'] = ESTADO_LABEL[p.estado] || p.estado || '';
+    return row;
+  }
+
+  async function exportExcel() {
+    const A = VT.app; if (!A) return;
+    try { await A.ensureXLSX(); } catch (e) { alert('No se pudo cargar el lector de Excel.'); return; }
+    const header = Object.keys(A.COL).filter(k => k !== 'categoria').map(k => A.COL[k]).concat(['Estado (en la app)']);
+    const bySheet = {};
+    A.places().forEach(p => {
+      const sheet = Object.keys(A.SHEETS).find(s => A.SHEETS[s] === p.categoria) || Object.keys(A.SHEETS)[0];
+      (bySheet[sheet] = bySheet[sheet] || []).push(placeToRow(p, A.COL));
+    });
+    const wb = XLSX.utils.book_new();
+    Object.keys(A.SHEETS).forEach(sheet => {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bySheet[sheet] || [], { header: header }), sheet);
+    });
+    XLSX.writeFile(wb, 'fincas-export.xlsx');
   }
   let countEl = null;
   function updateCount() { if (countEl) countEl.textContent = count() ? count() + ' fincas con cambios en este móvil' : 'Sin cambios todavía'; }
@@ -154,10 +181,13 @@
   if (host) {
     const wrap = document.createElement('div');
     wrap.innerHTML = '<div class="row" style="display:block"><b>Mis cambios</b><div id="vtEditCount" style="color:var(--muted);font-size:12.5px"></div></div>' +
-      '<div class="row"><button type="button" id="vtExp">Exportar cambios</button><button type="button" id="vtImp">Importar cambios</button><input type="file" id="vtImpFile" accept=".json,application/json" hidden></div>';
+      '<div class="row"><button type="button" id="vtExp">Exportar cambios</button><button type="button" id="vtImp">Importar cambios</button><input type="file" id="vtImpFile" accept=".json,application/json" hidden></div>' +
+      '<div class="row"><button type="button" id="vtExpXlsx">Exportar a Excel</button></div>' +
+      '<p class="hint" style="font-size:12.5px;color:var(--muted);margin:2px 0 0">Descarga un Excel con los datos originales más tus ediciones (estado, notas, posición…), con las mismas hojas y columnas que el Excel de origen.</p>';
     host.appendChild(wrap);
     countEl = $('vtEditCount'); updateCount();
     $('vtExp').addEventListener('click', () => download('fincas-cambios.json', JSON.stringify({ version: 1, cambios: edits }, null, 1)));
+    $('vtExpXlsx').addEventListener('click', () => exportExcel());
     $('vtImp').addEventListener('click', () => $('vtImpFile').click());
     $('vtImpFile').addEventListener('change', async ev => {
       const f = ev.target.files && ev.target.files[0]; if (!f) return;
